@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <sys/time.h>
 #include "mpi.h"
  
@@ -12,7 +11,7 @@
 
 
 #define ITER 1
-#define C 1
+#define C 8
 
 
 int main(int argc, char *argv[]) {
@@ -20,7 +19,7 @@ int main(int argc, char *argv[]) {
     struct timeval t1, t2;
     const char *f_in, *f_out;
     unsigned char *img_in, *img_out;
-    int img_width, img_height;
+    long img_width, img_height;
     MPI_Datatype col_type;
 
     
@@ -67,20 +66,17 @@ int main(int argc, char *argv[]) {
             MPI_Type_vector(img_height, 1, img_width, MPI_UNSIGNED_CHAR, &col_type);
             MPI_Type_commit(&col_type);
 
-            printf("Columna lida polo proceso máster:\n\t");
-            for (unsigned char *p = img_in; p != img_in + img_size - img_width; p += img_width) {
-                printf("%d ", *p);
-            }
-            printf("\n");
+            long num_blocks = img_width / C;
+            long num_cycles = num_blocks / mpi_size;
+            long rest = num_blocks % mpi_size;
+
+            int process;
+            for (num_cycles)
+
             MPI_Send(img_in, 1, col_type, 1, 0, MPI_COMM_WORLD);
         } else {
             unsigned char col[img_height];
             MPI_Recv(col, img_height, MPI_UNSIGNED_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            printf("Columna lida polo proceso esclavo:\n\t");
-            for (int i = 0; i < img_height; i++) {
-                printf("%d ", col[i]);
-            }
-            printf("\n");
         }
 
 /*
@@ -148,6 +144,7 @@ int main(int argc, char *argv[]) {
             
             stbi_image_free(img_in);
             stbi_image_free(img_out);
+
             MPI_Type_free(&col_type);
         }
     }
