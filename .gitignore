@@ -1,0 +1,8 @@
+# Slurm output files
+*.out
+
+# Executable
+p3
+
+# Output image
+output.jpg
