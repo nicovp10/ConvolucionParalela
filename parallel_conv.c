@@ -128,8 +128,10 @@ int main(int argc, char *argv[]) {
                 send_blocks++;
                 env++;
                 printf("[Proceso %d] Envíos: %d\n", myrank, env);
-                //num_proc++;
-                //num_proc %= mpi_comm_size;
+                num_proc++;
+                if (num_proc % mpi_comm_size == 0) {
+                    num_proc = 1;
+                }
             }
 
             if (rest_columns != 0) {

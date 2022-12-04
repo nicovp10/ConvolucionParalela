@@ -2,6 +2,7 @@
 
 
 #SBATCH -J parallel_convolution
+#SBATCH --output=./report_files/%x-%j.out
 #SBATCH -t 1:00:00
 #SBATCH --mem=4G
 
