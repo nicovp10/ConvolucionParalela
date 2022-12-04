@@ -1,8 +1,8 @@
-# Slurm output files
-*.out
+# Slurm files
+slurm_files/*.out
 
 # Executable
-p3
+parallel_conv
 
-# Output image
-output.jpg
+# Output images
+images/output_*.jpg
