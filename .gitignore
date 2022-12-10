@@ -1,8 +1,8 @@
-# Slurm report files
-report_files
-
 # Executable
 parallel_conv
 
+# Slurm report files
+report_files
+
 # Output images
-images/output_*.jpg
+images/output*.jpg

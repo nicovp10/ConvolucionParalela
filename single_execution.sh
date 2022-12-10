@@ -7,5 +7,8 @@
 #SBATCH --mem=96G
 
 
+# Determine the number of columns per block
+C=8
+
 # Execute the code
-srun parallel_conv $1
+srun parallel_conv $C

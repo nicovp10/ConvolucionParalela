@@ -20,7 +20,7 @@
 
 
 int main(int argc, char *argv[]) {
-    int myrank, mpi_comm_size, C, a, i, j, k;
+    int myrank, mpi_comm_size, C, a, i, j, k, x, y;
     //struct timeval t1, t2;
 
     const char *f_in;
@@ -32,10 +32,12 @@ int main(int argc, char *argv[]) {
     MPI_Datatype block_type;
     int total_blocks, processed_blocks, rest_columns, num_cycles, rest_processes, num_proc, offset;
     unsigned char *p_in, *p_out;
+    float auxSum;
 
     MPI_Status status;
     unsigned char *block;
     int block_size;
+    int block_column_length;
 
     int env = 0, recv = 0;
 
@@ -57,7 +59,7 @@ int main(int argc, char *argv[]) {
                 printf("ERROR: unable to allocate memory for the output image filename.\n\n");
                 exit(EXIT_FAILURE);
             }
-            sprintf(f_out, "images/output_%d.jpg", mpi_comm_size);
+            sprintf(f_out, "images/output_%d_%d.jpg", C, mpi_comm_size);
             break;
         case 3:
             C = atoi(argv[1]);
@@ -67,7 +69,7 @@ int main(int argc, char *argv[]) {
                 printf("ERROR: unable to allocate memory for the output image filename.\n\n");
                 exit(EXIT_FAILURE);
             }
-            sprintf(f_out, "images/output_%d.jpg", mpi_comm_size);
+            sprintf(f_out, "images/output_%d_%d.jpg", C, mpi_comm_size);
             break;
         case 4:
             C = atoi(argv[1]);
@@ -127,7 +129,8 @@ int main(int argc, char *argv[]) {
         
 
             // Define the MPI Datatype
-            MPI_Type_vector(img_height, C, img_width, MPI_UNSIGNED_CHAR, &block_type);
+            //      C + 2 because of the convolution of the first and last columns of the block
+            MPI_Type_vector(img_height, C + 2, img_width, MPI_UNSIGNED_CHAR, &block_type);
             MPI_Type_commit(&block_type);
 
             // Determine the number of blocks to scatter the image columns and the rest
@@ -147,7 +150,8 @@ int main(int argc, char *argv[]) {
                 processed_blocks = 1;
                 num_proc = 1;
                 while (processed_blocks < total_blocks - 1) {
-                    MPI_Send(img_in + processed_blocks * C, 1, block_type, num_proc, 0, MPI_COMM_WORLD);
+                    // Substract 1 from the offset to have the information from the column before the first column of the block
+                    MPI_Send(img_in + processed_blocks * C - 1, 1, block_type, num_proc, 0, MPI_COMM_WORLD);
                     processed_blocks++;
                     env++;
                     printf("[Proceso %d] Envíos: %d\n", myrank, env);
@@ -165,10 +169,11 @@ int main(int argc, char *argv[]) {
                 if (num_proc != MASTER_RANK) {
                     if (rest_columns > 0) {
                         MPI_Type_free(&block_type);
-                        MPI_Type_vector(img_height, rest_columns, img_width, MPI_UNSIGNED_CHAR, &block_type);
+                        // rest_colums + 1 because of the first column of the last block of the image
+                        MPI_Type_vector(img_height, rest_columns + 1, img_width, MPI_UNSIGNED_CHAR, &block_type);
                         MPI_Type_commit(&block_type);
                     }
-                    MPI_Send(img_in + (total_blocks - 1) * C, 1, block_type, num_proc, 0, MPI_COMM_WORLD);
+                    MPI_Send(img_in + (total_blocks - 1) * C - 1, 1, block_type, num_proc, 0, MPI_COMM_WORLD);
                     env++;
                     printf("[Proceso %d] Envíos: %d\n", myrank, env);
                 }
@@ -188,38 +193,214 @@ int main(int argc, char *argv[]) {
 
 
         if (myrank == MASTER_RANK) {
-            // Convolution of the master process
-            processed_blocks = 0;
+            // CONVOLUTION OF THE MASTER PROCESS
+            // First block of the image
+            // First column of the first block of the image
+            // First element of the column
+            p_in = img_in;
+            p_out = img_out;
+            auxSum = 0.0;
+            for (x = 0; x <= 1; x++) {
+                for (y = 0; y <= 1; y++) {
+                    auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                }
+            }
+            *p_out = (unsigned char) auxSum;
+
+            // Middle elements of the column
+            for (p_in = img_in + img_width, p_out = img_out + img_width;
+                p_in != img_in + img_size - img_width;
+                p_in += img_width, p_out += img_width) {
+                    auxSum = 0.0;
+                    for (x = -1; x <= 1; x++) {
+                        for (y = 0; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                        }
+                    }
+                    *p_out = (unsigned char) auxSum;
+            }
+
+            // Last element of the column
+            p_in = img_in + img_size - img_width;
+            p_out = img_out + img_size - img_width;
+            auxSum = 0.0;
+            for (x = -1; x <= 0; x++) {
+                for (y = 0; y <= 1; y++) {
+                    auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                }
+            }
+            *p_out = (unsigned char) auxSum;
+
+            // Rest of the columns of the first block of the image
+            for (i = 1; i < C; i++) {
+                // First element of the column
+                p_in = img_in + i;
+                p_out = img_out + i;
+                auxSum = 0.0;
+                for (x = 0; x <= 1; x++) {
+                    for (y = -1; y <= 1; y++) {
+                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                    }
+                }
+                *p_out = (unsigned char) auxSum;
+
+                // Middle elements of the column
+                for (p_in = img_in + i + img_width, p_out = img_out + i + img_width;
+                    p_in != img_in + i + img_size - img_width;
+                    p_in += img_width, p_out += img_width) {
+                        auxSum = 0.0;
+                        for (x = -1; x <= 1; x++) {
+                            for (y = -1; y <= 1; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                            }
+                        }
+                        *p_out = (unsigned char) auxSum;
+                }
+
+                // Last element of the column
+                p_in = img_in + i + img_size - img_width;
+                p_out = img_out + i + img_size - img_width;
+                auxSum = 0.0;
+                for (x = -1; x <= 0; x++) {
+                    for (y = -1; y <= 1; y++) {
+                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                    }
+                }
+                *p_out = (unsigned char) auxSum;
+            }
+
+
+            // Middle blocks
+            processed_blocks = mpi_comm_size;
             while (processed_blocks < total_blocks - 1) {
                 offset = processed_blocks * C;
-                for (j = 0; j < C; j++) {
-                    for (p_in = img_in + offset + j, p_out = img_out + offset + j;
-                        p_in != img_in + img_size + offset + j;
-                        p_in += img_width, p_out += img_width) {
-                            *p_out = *p_in;
+                for (i = 0; i < C; i++) {
+                    // First element of the column
+                    p_in = img_in + offset + i;
+                    p_out = img_out + offset + i;
+                    auxSum = 0.0;
+                    for (x = 0; x <= 1; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                        }
                     }
+                    *p_out = (unsigned char) auxSum;
+
+                    // Middle elements of the column
+                    for (p_in = img_in + offset + i + img_width, p_out = img_out + offset + i + img_width;
+                        p_in != img_in + offset + i + img_size - img_width;
+                        p_in += img_width, p_out += img_width) {
+                            auxSum = 0.0;
+                            for (x = -1; x <= 1; x++) {
+                                for (y = -1; y <= 1; y++) {
+                                    auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                                }
+                            }
+                            *p_out = (unsigned char) auxSum;
+                    }
+
+                    // Last element of the column
+                    p_in = img_in + offset + i + img_size - img_width;
+                    p_out = img_out + offset + i + img_size - img_width;
+                    auxSum = 0.0;
+                    for (x = -1; x <= 0; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                        }
+                    }
+                    *p_out = (unsigned char) auxSum;
                 }
                 processed_blocks += mpi_comm_size;
             }
 
+
+            // Last block of the image
             if (processed_blocks == total_blocks) {
                 if (rest_columns == 0) {
                     rest_columns = C;
                 }
                 offset = (total_blocks - 1) * C;
-                for (j = 0; j < rest_columns; j++) {
-                    for (p_in = img_in + offset + j, p_out = img_out + offset + j;
-                        p_in != img_in + img_size + offset + j;
+
+                // Firsts columns of the last block of the image
+                for (i = 0; i < rest_columns - 1; i++) {
+                    // First element of the column
+                    p_in = img_in + offset + i;
+                    p_out = img_out + offset + i;
+                    auxSum = 0.0;
+                    for (x = 0; x <= 1; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                        }
+                    }
+                    *p_out = (unsigned char) auxSum;
+
+                    // Middle elements of the column
+                    for (p_in = img_in + offset + i + img_width, p_out = img_out + offset + i + img_width;
+                        p_in != img_in + offset + i + img_size - img_width;
                         p_in += img_width, p_out += img_width) {
-                            *p_out = *p_in;
+                            auxSum = 0.0;
+                            for (x = -1; x <= 1; x++) {
+                                for (y = -1; y <= 1; y++) {
+                                    auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                                }
+                            }
+                            *p_out = (unsigned char) auxSum;
+                    }
+
+                    // Last element of the column
+                    p_in = img_in + offset + i + img_size - img_width;
+                    p_out = img_out + offset + i + img_size - img_width;
+                    auxSum = 0.0;
+                    for (x = -1; x <= 0; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                        }
+                    }
+                    *p_out = (unsigned char) auxSum;
+                }
+
+                // Last column of the last block of the image
+                // First element of the column
+                offset = (total_blocks - 1) * C + rest_columns - 1;
+                p_in = img_in + offset;
+                p_out = img_out + offset;
+                auxSum = 0.0;
+                for (x = 0; x <= 1; x++) {
+                    for (y = -1; y <= 0; y++) {
+                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
                     }
                 }
+                *p_out = (unsigned char) auxSum;
+
+                // Middle elements of the column
+                for (p_in = img_in + offset + img_width, p_out = img_out + offset + img_width;
+                    p_in != img_in + offset + img_size - img_width;
+                    p_in += img_width, p_out += img_width) {
+                        auxSum = 0.0;
+                        for (x = -1; x <= 1; x++) {
+                            for (y = -1; y <= 0; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                            }
+                        }
+                        *p_out = (unsigned char) auxSum;
+                }
+
+                // Last element of the column
+                p_in = img_in + offset + img_size - img_width;
+                p_out = img_out + offset + img_size - img_width;
+                auxSum = 0.0;
+                for (x = -1; x <= 0; x++) {
+                    for (y = -1; y <= 0; y++) {
+                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * img_width + y);
+                    }
+                }
+                *p_out = (unsigned char) auxSum;
             }
             
 
             // Reception of the blocks from the slave processes
             if (mpi_comm_size > 1) {
-                block_size = C * img_height;
+                block_size = (C + 2) * img_height;
                 block = (unsigned char *) malloc(block_size * sizeof(unsigned char));
 
                 for (i = 1; i < mpi_comm_size; i++) {
@@ -276,14 +457,51 @@ int main(int argc, char *argv[]) {
             stbi_image_free(img_in);
             stbi_image_free(img_out);
         } else {
-            block = (unsigned char *) malloc(C * MAX_COLUMN_LENGTH * sizeof(unsigned char));
+            block = (unsigned char *) malloc((C + 2) * MAX_COLUMN_LENGTH * sizeof(unsigned char));
             
-            MPI_Recv(block, C * MAX_COLUMN_LENGTH, MPI_UNSIGNED_CHAR, MASTER_RANK, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            MPI_Recv(block, (C + 2) * MAX_COLUMN_LENGTH, MPI_UNSIGNED_CHAR, MASTER_RANK, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             recv++;
             printf("[Proceso %d] Recepcións: %d\n", myrank, recv);
             MPI_Get_count(&status, MPI_UNSIGNED_CHAR, &block_size);
+            block_column_length = block_size / (C + 2);
             block = (unsigned char *) realloc(block, block_size * sizeof(unsigned char));
-            // CONVOLUTION OPERATION
+
+            // Convolution
+            for (i = 1; i <= C; i++) {
+                // First element of the column
+                p_in = block + i;
+                auxSum = 0.0;
+                for (x = 0; x <= 1; x++) {
+                    for (y = -1; y <= 1; y++) {
+                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                    }
+                }
+                *p_in = (unsigned char) auxSum;
+                printf("[Proceso %d] Chega\n", myrank);
+                // Middle elements of the column
+                for (p_in = block + i + C;
+                    p_in != block + i + block_size - C;
+                    p_in += C) {
+                        auxSum = 0.0;
+                        for (x = -1; x <= 1; x++) {
+                            for (y = -1; y <= 1; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                            }
+                        }
+                        *p_in = (unsigned char) auxSum;
+                }
+
+                // Last element of the column
+                p_in = block + i + block_size - C;
+                auxSum = 0.0;
+                for (x = -1; x <= 0; x++) {
+                    for (y = -1; y <= 1; y++) {
+                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                    }
+                }
+                *p_in = (unsigned char) auxSum;
+            }
+
             MPI_Send(block, block_size, MPI_UNSIGNED_CHAR, MASTER_RANK, 0, MPI_COMM_WORLD);
             env++;
             printf("[Proceso %d] Envíos: %d\n", myrank, env);
@@ -292,7 +510,43 @@ int main(int argc, char *argv[]) {
                 MPI_Recv(block, block_size, MPI_UNSIGNED_CHAR, MASTER_RANK, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 recv++;
                 printf("[Proceso %d] Recepcións: %d\n", myrank, recv);
-                // CONVOLUTION OPERATION
+
+                // Convolution
+                for (i = j; j <= C; j++) {
+                    // First element of the column
+                    p_in = block + j;
+                    auxSum = 0.0;
+                    for (x = 0; x <= 1; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                        }
+                    }
+                    *p_in = (unsigned char) auxSum;
+
+                    // Middle elements of the column
+                    for (p_in = block + j + C;
+                        p_in != block + j + block_size - C;
+                        p_in += C) {
+                            auxSum = 0.0;
+                            for (x = -1; x <= 1; x++) {
+                                for (y = -1; y <= 1; y++) {
+                                    auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                                }
+                            }
+                            *p_in = (unsigned char) auxSum;
+                    }
+
+                    // Last element of the column
+                    p_in = block + j + block_size - C;
+                    auxSum = 0.0;
+                    for (x = -1; x <= 0; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                        }
+                    }
+                    *p_in = (unsigned char) auxSum;
+                }
+                
                 MPI_Send(block, block_size, MPI_UNSIGNED_CHAR, MASTER_RANK, i, MPI_COMM_WORLD);
                 env++;
                 printf("[Proceso %d] Envíos: %d\n", myrank, env);
@@ -304,8 +558,116 @@ int main(int argc, char *argv[]) {
                 printf("[Proceso %d] Recepcións: %d\n", myrank, recv);
                 if (myrank == rest_processes - 1) {
                     MPI_Get_count(&status, MPI_UNSIGNED_CHAR, &block_size);
+                    rest_columns = block_size / block_column_length;
+
+                    // Convolution of the last block of the image
+                    // First columns of the last block of the image
+                    for (i = 1; i < rest_columns - 1; i++) {
+                        // First element of the column
+                        p_in = block + i;
+                        auxSum = 0.0;
+                        for (x = 0; x <= 1; x++) {
+                            for (y = -1; y <= 1; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * rest_columns + y);
+                            }
+                        }
+                        *p_in = (unsigned char) auxSum;
+
+                        // Middle elements of the column
+                        for (p_in = block + i + rest_columns;
+                            p_in != block + i + block_size - rest_columns;
+                            p_in += C) {
+                                auxSum = 0.0;
+                                for (x = -1; x <= 1; x++) {
+                                    for (y = -1; y <= 1; y++) {
+                                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * rest_columns + y);
+                                    }
+                                }
+                                *p_in = (unsigned char) auxSum;
+                        }
+
+                        // Last element of the column
+                        p_in = block + i + block_size - rest_columns;
+                        auxSum = 0.0;
+                        for (x = -1; x <= 0; x++) {
+                            for (y = -1; y <= 1; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * rest_columns + y);
+                            }
+                        }
+                        *p_in = (unsigned char) auxSum;
+                    }
+
+                    // Last column of the last block of the image
+                    // First element of the column
+                    offset = rest_columns - 1;
+                    p_in = block + offset;
+                    auxSum = 0.0;
+                    for (x = 0; x <= 1; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * rest_columns + y);
+                        }
+                    }
+                    *p_in = (unsigned char) auxSum;
+
+                    // Middle elements of the column
+                    for (p_in = block + offset + rest_columns;
+                        p_in != block + offset + block_size - rest_columns;
+                        p_in += C) {
+                            auxSum = 0.0;
+                            for (x = -1; x <= 1; x++) {
+                                for (y = -1; y <= 1; y++) {
+                                    auxSum += kernel[x + 1][y + 1] * *(p_in + x * rest_columns + y);
+                                }
+                            }
+                            *p_in = (unsigned char) auxSum;
+                    }
+
+                    // Last element of the column
+                    p_in = block + offset + block_size - rest_columns;
+                    auxSum = 0.0;
+                    for (x = -1; x <= 0; x++) {
+                        for (y = -1; y <= 1; y++) {
+                            auxSum += kernel[x + 1][y + 1] * *(p_in + x * rest_columns + y);
+                        }
+                    }
+                    *p_in = (unsigned char) auxSum;
+                } else {
+                    // Convolution
+                    for (i = 1; i <= C; i++) {
+                        // First element of the column
+                        p_in = block + i;
+                        auxSum = 0.0;
+                        for (x = 0; x <= 1; x++) {
+                            for (y = -1; y <= 1; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                            }
+                        }
+                        *p_in = (unsigned char) auxSum;
+
+                        // Middle elements of the column
+                        for (p_in = block + i + C;
+                            p_in != block + i + block_size - C;
+                            p_in += C) {
+                                auxSum = 0.0;
+                                for (x = -1; x <= 1; x++) {
+                                    for (y = -1; y <= 1; y++) {
+                                        auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                                    }
+                                }
+                                *p_in = (unsigned char) auxSum;
+                        }
+
+                        // Last element of the column
+                        p_in = block + i + block_size - C;
+                        auxSum = 0.0;
+                        for (x = -1; x <= 0; x++) {
+                            for (y = -1; y <= 1; y++) {
+                                auxSum += kernel[x + 1][y + 1] * *(p_in + x * C + y);
+                            }
+                        }
+                        *p_in = (unsigned char) auxSum;
+                    }
                 }
-                // CONVOLUTION OPERATION
                 MPI_Send(block, block_size, MPI_UNSIGNED_CHAR, MASTER_RANK, num_cycles, MPI_COMM_WORLD);
                 env++;
                 printf("[Proceso %d] Envíos: %d\n", myrank, env);
@@ -328,43 +690,35 @@ int main(int argc, char *argv[]) {
                 p_in += img_width, p_out += img_width) {
             *p_out = *p_in;
         }
-
         // Last row
         for (unsigned char *p_in = img_in + img_size - img_width, *p_out = img_out + img_size - img_width;
                 p_in != img_in + img_size;
                 p_in += 1, p_out += 1) {
             *p_out = *p_in;
         }
-
         // Last column
         for (unsigned char *p_in = img_in + img_width * 2 - 1, *p_out = img_out + img_width * 2 - 1;
                 p_in != img_in + img_size - img_width - 1;
                 p_in += img_width, p_out += img_width) {
             *p_out = *p_in;
         }
-
         // Convolution
         for (unsigned char *p_in = img_in + img_width + 1, *p_out = img_out + img_width + 1;
                 p_in != img_in + img_size - img_width - 1;
                 p_in += 1, p_out += 1) {
-            float sum = 0.0;
+            float auxSum = 0.0;
             for (int i = -1; i <= 1; i++) {
                 for (int j = -1; j <= 1; j++) {
-                    sum += kernel[i + 1][j + 1] * *(p_in + i * img_width + j);
+                    auxSum += kernel[i + 1][j + 1] * *(p_in + i * img_width + j);
                 }
             }
-            *p_out = (unsigned char) sum;
+            *p_out = (unsigned char) auxSum;
         }
-
-
         // Measurement of the time it takes each process to calculate
         memset(&t1, 0, sizeof(struct timeval));
         memset(&t2, 0, sizeof(struct timeval));
         gettimeofday(&t1, NULL);
-
         gettimeofday(&t2, NULL);
-
-
         // Regrouping of the partial results of each process
         memset(&t1, 0, sizeof(struct timeval));
         memset(&t2, 0, sizeof(struct timeval));
