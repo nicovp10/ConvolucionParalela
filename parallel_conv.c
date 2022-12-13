@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    // The master process read the input image and define the kernel
+    // The master process does various tasks
     if (myrank == MASTER_RANK) {
         // Load the input image
         img_in = stbi_load(f_in, &img_width, &img_height, NULL, 1);
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
         num_cycles = total_blocks / mpi_comm_size;
         rest_processes = total_blocks % mpi_comm_size;
 
-        // Send the corresponding colums to each process 
+        // Send the corresponding blocks to each process 
         if (mpi_comm_size > 1) {
             memset(&t1, 0, sizeof(struct timeval));
             memset(&t2, 0, sizeof(struct timeval));
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
             }
 
             // Last block
-            //      If the master process doesn't have to convolve it, it will be send
+            // If the master process doesn't have to convolve it, it will be send
             if (num_proc != MASTER_RANK) {
                 if (rest_columns > 0) {
                     MPI_Type_free(&block_type);
