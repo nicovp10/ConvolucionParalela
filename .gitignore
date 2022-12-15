@@ -2,7 +2,10 @@
 parallel_conv
 
 # Slurm report files
-report_files
+slurm_files
+
+# Output files
+output_files
 
 # Output images
 images/output*.jpg

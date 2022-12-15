@@ -421,6 +421,10 @@ int main(int argc, char *argv[]) {
 
             block_size = (C + 2) * img_height;
             recv_block = (unsigned char *) malloc(block_size * sizeof(unsigned char));
+            if (recv_block == NULL) {
+                printf("ERROR: unable to allocate memory for recv_block.\n\n");
+                exit(EXIT_FAILURE);
+            }
 
             for (i = 1; i < mpi_comm_size; i++) {
                 for (j = 0; j < num_cycles; j++) {
@@ -474,12 +478,25 @@ int main(int argc, char *argv[]) {
         stbi_image_free(img_out);
     } else {
         recv_block = (unsigned char *) malloc((C + 2) * MAX_COLUMN_LENGTH * sizeof(unsigned char));
+        if (recv_block == NULL) {
+            printf("ERROR: unable to allocate memory for recv_block.\n\n");
+            exit(EXIT_FAILURE);
+        }
         
         MPI_Recv(recv_block, (C + 2) * MAX_COLUMN_LENGTH, MPI_UNSIGNED_CHAR, MASTER_RANK, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         MPI_Get_count(&status, MPI_UNSIGNED_CHAR, &block_size);
         block_column_length = block_size / (C + 2);
         recv_block = (unsigned char *) realloc(recv_block, block_size * sizeof(unsigned char));
+        if (recv_block == NULL) {
+            printf("ERROR: unable to reallocate memory for recv_block.\n\n");
+            exit(EXIT_FAILURE);
+        }
+
         send_block = (unsigned char *) malloc(block_size * sizeof(unsigned char));
+        if (send_block == NULL) {
+            printf("ERROR: unable to allocate memory for send_block.\n\n");
+            exit(EXIT_FAILURE);
+        }
 
         // Aux columns
         for (p_in = recv_block, p_out = send_block;
