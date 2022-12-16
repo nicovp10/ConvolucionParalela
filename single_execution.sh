@@ -8,7 +8,7 @@
 
 
 # Different number of columns per block
-C_values=(2 25 55 105)
+C_values=(1 15 55 105)
 
 # Number of executions
 ITER=5

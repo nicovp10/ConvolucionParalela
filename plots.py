@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 
+import os
 import matplotlib.pyplot as plt
 
 
@@ -8,10 +9,16 @@ def main():
     """Main function"""
 
     # VARIABLES
+    plots_folder='plots/'
     num_proc = range(1, 33)
-    C_values = [2, 25, 55, 105]
+    C_values = [1, 15, 55, 105]
     ITER = 5
     final_times = [[0 for _ in range(len(num_proc))] for _ in range(len(C_values))]
+
+
+    # Check if the plots folder exists; if not, create it
+    if not os.path.exists(plots_folder):
+        os.mkdir(plots_folder)
 
 
     # Read the files
@@ -19,7 +26,6 @@ def main():
         filename = 'output_files/output_' + str(n) + '.txt'
         with open(filename, 'r') as datafile:
             for i in range(len(C_values)):
-
                 # Initialize the lists
                 sends_times = []
                 bcasts_times = []
@@ -104,7 +110,7 @@ def main():
         plt.ylabel('Tempo de execución (s)')
         plt.title('Tempo de execución con bloques de tamaño ' + str(C_values[i]))
         plt.legend()
-        plt.savefig('plots/time_' + str(C_values[i]) + '.png')
+        plt.savefig(plots_folder + 'time_' + str(C_values[i]) + '.png')
         plt.clf()
 
         # Speedup
@@ -115,7 +121,7 @@ def main():
         plt.ylabel('Speedup')
         plt.title('Speedup con bloques de tamaño ' + str(C_values[i]))
         plt.legend()
-        plt.savefig('plots/speedup_' + str(C_values[i]) + '.png')
+        plt.savefig(plots_folder + 'speedup_' + str(C_values[i]) + '.png')
         plt.clf()
 
     # All together
@@ -126,7 +132,7 @@ def main():
     plt.ylabel('Tempo de execución (s)')
     plt.title('Tempo de execución con bloques de tamaño C')
     plt.legend()
-    plt.savefig('plots/time_together.png')
+    plt.savefig(plots_folder + 'time_together.png')
     plt.clf()
 
     # Speedup
@@ -137,7 +143,7 @@ def main():
     plt.ylabel('Speedup')
     plt.title('Speedup con bloques de tamaño C')
     plt.legend()
-    plt.savefig('plots/speedup_together.png')
+    plt.savefig(plots_folder + 'speedup_together.png')
     plt.clf()
 
 
