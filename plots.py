@@ -4,15 +4,13 @@
 import matplotlib.pyplot as plt
 
 
-
 def main():
     """Main function"""
 
     # VARIABLES
     num_proc = range(1, 33)
-    C_values = [2, 25, 100]
+    C_values = [2, 25, 55, 105]
     ITER = 5
-
     final_times = [[0 for _ in range(len(num_proc))] for _ in range(len(C_values))]
 
 
@@ -96,8 +94,51 @@ def main():
     
 
     # Plots
-    print(final_times)
+    # By separate
+    for i in range(len(C_values)):
+        # Time
+        ideal_times = [final_times[i][0]/n for n in num_proc]
+        plt.plot(num_proc, ideal_times, color='b', linestyle='dotted', label='Tempo ideal')
+        plt.plot(num_proc, final_times[i], color='r', label='Tempo real')
+        plt.xlabel('Número de procesos')
+        plt.ylabel('Tempo de execución (s)')
+        plt.title('Tempo de execución con bloques de tamaño ' + str(C_values[i]))
+        plt.legend()
+        plt.savefig('plots/time_' + str(C_values[i]) + '.png')
+        plt.clf()
 
+        # Speedup
+        speedups = [final_times[i][0]/j for j in final_times[i]]
+        plt.plot(num_proc, num_proc, color='b', linestyle='dotted', label='Speedup ideal')
+        plt.plot(num_proc, speedups, color='r', label='Speedup real')
+        plt.xlabel('Número de procesos')
+        plt.ylabel('Speedup')
+        plt.title('Speedup con bloques de tamaño ' + str(C_values[i]))
+        plt.legend()
+        plt.savefig('plots/speedup_' + str(C_values[i]) + '.png')
+        plt.clf()
+
+    # All together
+    # Time
+    for i in range(len(C_values)):
+        plt.plot(num_proc, final_times[i], label='C = ' + str(C_values[i]))
+    plt.xlabel('Número de procesos')
+    plt.ylabel('Tempo de execución (s)')
+    plt.title('Tempo de execución con bloques de tamaño C')
+    plt.legend()
+    plt.savefig('plots/time_together.png')
+    plt.clf()
+
+    # Speedup
+    for i in range(len(C_values)):
+        speedups = [final_times[i][0]/j for j in final_times[i]]
+        plt.plot(num_proc, speedups, label='C = ' + str(C_values[i]))
+    plt.xlabel('Número de procesos')
+    plt.ylabel('Speedup')
+    plt.title('Speedup con bloques de tamaño C')
+    plt.legend()
+    plt.savefig('plots/speedup_together.png')
+    plt.clf()
 
 
 

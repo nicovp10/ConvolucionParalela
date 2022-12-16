@@ -8,4 +8,7 @@ slurm_files
 output_files
 
 # Output images
-images/output*.jpg
+images/output_*.jpg
+
+# Plots generated
+plots
