@@ -90,6 +90,8 @@ int main(int argc, char *argv[]) {
 
     // The master process does various tasks
     if (myrank == MASTER_RANK) {
+        printf("Init\n");
+
         // Load the input image
         img_in = stbi_load(f_in, &img_width, &img_height, NULL, 1);
         if (img_in == NULL) {
@@ -168,7 +170,7 @@ int main(int argc, char *argv[]) {
             MPI_Type_free(&block_type);
 
             gettimeofday(&t2, NULL);
-            printf("sends=%lf\n", (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
+            printf("Sends: %lf\n", (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
         }
     }
     
@@ -191,7 +193,7 @@ int main(int argc, char *argv[]) {
 
         if (myrank == MASTER_RANK) {
             gettimeofday(&t2, NULL);
-            printf("bcasts=%lf\n", (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
+            printf("Bcasts: %lf\n", (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
         }
     }
 
@@ -402,7 +404,7 @@ int main(int argc, char *argv[]) {
         }
 
         gettimeofday(&t2, NULL);
-        printf("[Process %d] convolutions=%lf\n", myrank, (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
+        printf("Process: %d; Convolutions: %lf\n", myrank, (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
 
 
         // Reception of the blocks from the slave processes
@@ -459,7 +461,7 @@ int main(int argc, char *argv[]) {
             free(recv_block);
 
             gettimeofday(&t2, NULL);
-            printf("recvs=%lf\n", (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
+            printf("Recvs: %lf\n", (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
         }
 
         stbi_write_jpg(f_out, img_width, img_height, 1, img_out, 100);
@@ -716,7 +718,7 @@ int main(int argc, char *argv[]) {
         }
 
         gettimeofday(&t2, NULL);
-        printf("[Process %d] convolutions=%lf\n", myrank, (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
+        printf("Process: %d; Convolutions: %lf\n", myrank, (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
         
         free(send_block);
         free(recv_block);
