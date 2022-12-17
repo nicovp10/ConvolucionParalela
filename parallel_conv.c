@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
         printf("Process: %d; Convolutions: %lf\n", myrank, (t2.tv_sec - t1.tv_sec + (t2.tv_usec - t1.tv_usec) / 1.e6));
 
 
-        // Reception of the blocks from the slave processes
+        // Reception of the blocks from the slave processes and construction of the output image
         if (mpi_comm_size > 1) {
             memset(&t1, 0, sizeof(struct timeval));
             memset(&t2, 0, sizeof(struct timeval));
