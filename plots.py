@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 def main():
     """Main function"""
 
-    # VARIABLES
+    # Variables
     plots_folder='plots/'
     num_proc = range(1, 33)
     C_values = [1, 15, 55, 105]
@@ -114,9 +114,10 @@ def main():
         plt.clf()
 
         # Speedup
-        speedups = [final_times[i][0]/j for j in final_times[i]]
-        plt.plot(num_proc, num_proc, color='b', linestyle='dotted', label='Speedup ideal')
-        plt.plot(num_proc, speedups, color='r', label='Speedup real')
+        ideal_speedups = [1/((0.84/n) + 0.16) for n in num_proc]
+        real_speedups = [final_times[i][0]/j for j in final_times[i]]
+        plt.plot(num_proc, ideal_speedups, color='b', linestyle='dotted', label='Speedup ideal')
+        plt.plot(num_proc, real_speedups, color='r', label='Speedup real')
         plt.xlabel('Número de procesos')
         plt.ylabel('Speedup')
         plt.title('Speedup con bloques de tamaño ' + str(C_values[i]))
