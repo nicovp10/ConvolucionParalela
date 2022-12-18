@@ -3,7 +3,7 @@
 ## Introducción
 Este estudio ha sido realizado para aprender de forma didáctica como de escalable es la paralelización de una convolución de una imagen en niveles de gris. Se ha analizado la escalabilidad en función del número de procesos involucrados y del tamaño de los bloques de columnas en los que se ha dividido la imagen para su paralelización.
 
-El repositorio está formado por una [carpeta de imágenes](images), dónde se guardarán las imágenes resultantes de la ejecución así como se insertarán si se desea imágenes de entrada nuevas, el [código](parallel_conv.c) en C del programa, los ficheros asociados a la librería [stb](https://github.com/nothings/stb) para manejo de imágenes, un par de scripts en Bash para ayudar a la ejecución con MPI, un [script](plots.py) en Python para graficar los valores de análisis obtenidos y el [informe](Informe.pdf) asociado al estudio completo de la escalabilidad.
+El repositorio está formado por una [carpeta de imágenes](images), dónde se guardarán las imágenes resultantes de la ejecución así como se insertarán si se desea imágenes de entrada nuevas, el [código](parallel_conv.c) en C del programa, los ficheros asociados a la librería [stb](https://github.com/nothings/stb) para manejo de imágenes, un par de scripts en Bash para ayudar a la ejecución con MPI, un [script](plots.py) en Python para graficar los valores de análisis obtenidos y el [informe](Informe.pdf) asociado al estudio completo.
 
 
 ## Ejecución
